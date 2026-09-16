@@ -42,6 +42,32 @@ Separation comes from **reaction time**: a defender in man coverage chases
 where the receiver *was* a fraction of a second ago, so sharp route breaks get
 people open and boosting a unit cuts its reaction time.
 
+## Playing on two computers
+
+Both players on the same Wi-Fi, one of you runs:
+
+```
+npm install     # once
+npm start
+```
+
+It prints an address like `http://192.168.1.23:3000`. Open that on both
+machines. The first browser to arrive is HOME (ball first), the second is
+AWAY, and anyone after that just watches — put one on the projector.
+
+Sides swap every possession, and each screen only shows the controls for
+the side you are currently on. The defense does **not** see the offense's
+route preview before the snap — online, reading the formation is their job.
+
+How it works: `server.js` loads the exact same `config.js`, `engine.js`
+and `game.js` the browser uses and runs the simulation there. Browsers
+never simulate anything; they send intentions (`call play 2`, `snap`,
+`throw to WR1`, `holding the rush key`) and draw whatever state the server
+streams back. On a LAN the round trip is a couple of milliseconds, so no
+prediction or interpolation is needed — that is the entire trick.
+
+Hot-seat mode still works exactly as before: just open `index.html`.
+
 ## Rules
 
 The whole game is the overtime shootout:
@@ -56,7 +82,7 @@ means another round.
 
 ## Code layout
 
-Five files, loaded in order, no bundler. The split is deliberate:
+Plain scripts loaded in order, no bundler. The split is deliberate:
 
 | File | Responsibility |
 |---|---|
@@ -64,7 +90,10 @@ Five files, loaded in order, no bundler. The split is deliberate:
 | `js/engine.js` | Simulates one play. Moves dots around and fills in a result. Knows nothing about scores or the DOM. |
 | `js/game.js` | The rulebook: downs, scoring, overtime rounds. Decides what a play *meant*. |
 | `js/render.js` | Draws state onto the canvas. Never modifies the game. |
-| `js/main.js` | Input, the game loop, and the HTML scoreboard/HUD. |
+| `js/hud.js` | The HTML around the canvas. Shared by both modes; every button goes through `ACT`, which the mode file fills in. |
+| `js/main.js` | Hot-seat mode: input and the game loop, one keyboard. |
+| `js/net.js` | Online mode: replaces `main.js`. Sends inputs to the server, draws what comes back. |
+| `server.js` | Runs the game for two computers. Loads the same three logic files and ticks them at 60Hz. |
 
 The loop in `main.js` is the classic three steps, sixty times a second:
 read input → update state → draw state.

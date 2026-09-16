@@ -17,7 +17,10 @@ function render(ctx, G) {
   const P = G.play;
   if (!P) return;
 
-  if (G.phase === 'PRESNAP') drawRoutes(ctx, P);
+  /* Route preview before the snap. Online, the defense does not get to
+     see it — reading the formation is their job. (VIEW comes from hud.js;
+     guard it so this file still works without the HUD, e.g. in tests.) */
+  if (G.phase === 'PRESNAP' && (typeof VIEW === 'undefined' || VIEW.role !== 'def')) drawRoutes(ctx, P);
   drawLines(ctx, G, P);
   drawPlayers(ctx, G, P);
   drawBall(ctx, P);

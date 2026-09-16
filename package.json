@@ -1,0 +1,12 @@
+{
+  "name": "red-zone-royale",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Two-player overtime football. Open index.html for hot-seat, or `npm start` to play across two computers.",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "ws": "^8.18.0"
+  }
+}
