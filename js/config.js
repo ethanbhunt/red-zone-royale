@@ -26,7 +26,6 @@ const CFG = {
   /* ---- game rules ---- */
   START_YARD: 25,     // every drive starts at the 25
   PAT_YARD: 3,        // 2-pt conversions & extra points snap from the 3
-  XP_MAKE: 0.94,      // extra point kick success rate
   ENERGY_POOL: 100,   // defense energy, refilled each possession
   ENERGY_DRAIN: 15,   // energy per simulation-second while holding a unit key
   BOOST_DL: 1.90,     // rush gets a big multiplier: it is the defense's clock
@@ -45,6 +44,21 @@ const CFG = {
      turning this down slows the whole play without disturbing any of
      the balance between the pieces. 1.0 = real time. */
   TEMPO: 0.80,
+
+  /* ---- kicking ----
+     Field goals and extra points are a timing test: a marker sweeps back
+     and forth across a bar and the offense stops it. Longer kicks shrink
+     the sweet spot and speed the marker up. The meter runs in REAL time
+     (it is a reaction test, not part of the slowed simulation). */
+  KICK_SWEET_BASE: 0.62,    // sweet-spot width, as a fraction of the bar...
+  KICK_SWEET_PER_YD: 0.0105,// ...minus this per yard of kick distance
+  KICK_SWEET_MIN: 0.07,
+  KICK_SWEET_MAX: 0.50,
+  KICK_SPEED_BASE: 1.3,     // full sweeps of the bar per second...
+  KICK_SPEED_PER_YD: 0.022, // ...plus this per yard
+  KICK_FLIGHT: 1.3,         // seconds the ball is in the air
+  KICK_TIMEOUT: 6.0,        // never pressed? it gets kicked anyway
+  POST_HALF: 3.08,          // uprights are 18.5 ft apart; half of that in yards
 
   /* ---- play clock (in simulation seconds, so TEMPO scales it too) ---- */
   MAX_HOLD: 5.0,      // QB must throw within this many seconds

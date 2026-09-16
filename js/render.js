@@ -13,6 +13,7 @@ function sy(y) { return CFG.CANVAS_H / 2 + y * CFG.PPY; }
 function render(ctx, G) {
   ctx.clearRect(0, 0, CFG.CANVAS_W, CFG.CANVAS_H);
   drawField(ctx, G);
+  drawGoalposts(ctx);
 
   const P = G.play;
   if (!P) return;
@@ -23,7 +24,8 @@ function render(ctx, G) {
   if (G.phase === 'PRESNAP' && (typeof VIEW === 'undefined' || VIEW.role !== 'def')) drawRoutes(ctx, P);
   drawLines(ctx, G, P);
   drawPlayers(ctx, G, P);
-  drawBall(ctx, P);
+  if (G.kick && (G.phase === 'KICK' || G.kick.done)) drawKick(ctx, G);
+  else drawBall(ctx, P);
   drawOverlay(ctx, G, P);
 }
 
@@ -98,6 +100,19 @@ function drawField(ctx, G) {
   }
 }
 
+/* ---------------- goalposts, seen from above ---------------- */
+function drawGoalposts(ctx) {
+  const x = sx(-10), half = CFG.POST_HALF * CFG.PPY;
+  ctx.strokeStyle = '#c8c8c8'; ctx.lineWidth = 4;              // the base, behind the bar
+  ctx.beginPath(); ctx.moveTo(x, sy(0)); ctx.lineTo(sx(-11.2), sy(0)); ctx.stroke();
+  ctx.strokeStyle = '#f5cd28'; ctx.lineWidth = 5;              // crossbar
+  ctx.beginPath(); ctx.moveTo(x, sy(0) - half); ctx.lineTo(x, sy(0) + half); ctx.stroke();
+  for (const s of [-1, 1]) {                                    // uprights
+    ctx.beginPath(); ctx.arc(x, sy(0) + s * half, 5, 0, 7);
+    ctx.fillStyle = '#f5cd28'; ctx.fill();
+  }
+}
+
 /* ---------------- scrimmage + first down markers ---------------- */
 function drawLines(ctx, G, P) {
   ctx.setLineDash([]);
@@ -154,7 +169,7 @@ function drawPlayers(ctx, G, P) {
   }
 
   /* quarterback gets a white ring so you can always find him */
-  chip(ctx, sx(P.qb.x), sy(P.qb.y), 10, off, 'QB', P.phase === 'LIVE');
+  chip(ctx, sx(P.qb.x), sy(P.qb.y), 10, off, 'QB', P.phase === 'LIVE' && G.phase === 'LIVE');
 }
 
 /* `glow` is either falsy, true (a plain white halo) or a colour string. */
@@ -212,6 +227,57 @@ function drawBall(ctx, P) {
   ctx.ellipse(sx(b.x), sy(b.y) - lift, 6, 4, -0.4, 0, 7);
   ctx.fillStyle = '#8a4b1e'; ctx.fill();
   ctx.lineWidth = 1.5; ctx.strokeStyle = '#fff'; ctx.stroke();
+}
+
+/* ---------------- kicking: the ball and the meter ---------------- */
+function drawKick(ctx, G) {
+  const k = G.kick;
+
+  /* the ball: on the tee, in the air, or where it came down */
+  let bx = G.ballX + 7, by = 0, lift = 0;
+  if (k.flight) {
+    const f = k.flight, u = Math.min(1, f.t / f.dur);
+    bx = f.fromX + (f.toX - f.fromX) * u;
+    by = f.fromY + (f.toY - f.fromY) * u;
+    lift = Math.sin(u * Math.PI) * 46;
+  }
+  ctx.beginPath(); ctx.ellipse(sx(bx), sy(by), 5, 3, 0, 0, 7);
+  ctx.fillStyle = 'rgba(0,0,0,0.3)'; ctx.fill();
+  ctx.beginPath(); ctx.ellipse(sx(bx), sy(by) - lift, 6, 4, -0.4, 0, 7);
+  ctx.fillStyle = '#8a4b1e'; ctx.fill();
+  ctx.lineWidth = 1.5; ctx.strokeStyle = '#fff'; ctx.stroke();
+
+  if (G.phase !== 'KICK') return;
+
+  /* the meter */
+  const W = 440, H = 24, x0 = (CFG.CANVAS_W - W) / 2, y0 = CFG.CANVAS_H - 84;
+  ctx.fillStyle = 'rgba(8,11,16,0.78)';
+  roundRect(ctx, x0 - 14, y0 - 40, W + 28, H + 62, 10); ctx.fill();
+
+  ctx.fillStyle = 'rgba(255,255,255,0.14)';
+  roundRect(ctx, x0, y0, W, H, 6); ctx.fill();
+
+  const sw = k.sweet * W;                                   // the gold
+  ctx.fillStyle = k.stopped ? (k.good ? '#3ad07f' : 'rgba(245,205,40,0.35)') : '#f5cd28';
+  roundRect(ctx, x0 + W / 2 - sw / 2, y0, sw, H, 4); ctx.fill();
+
+  ctx.fillStyle = 'rgba(255,255,255,0.5)';                  // dead centre tick
+  ctx.fillRect(x0 + W / 2 - 1, y0 - 4, 2, H + 8);
+
+  const mx = x0 + k.pos * W;                                // the marker
+  ctx.fillStyle = k.stopped && !k.good ? '#ff4d4d' : '#fff';
+  ctx.fillRect(mx - 2.5, y0 - 8, 5, H + 16);
+
+  ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  ctx.fillStyle = '#fff';
+  ctx.font = '700 14px Arial Black, Arial, sans-serif';
+  ctx.fillText(`${k.distance} YD  ·  ${kickDifficulty(k.distance)}`, CFG.CANVAS_W / 2, y0 - 22);
+  if (!k.stopped) {
+    const pulse = 0.55 + 0.45 * Math.sin(k.t * 7);
+    ctx.fillStyle = `rgba(245,205,40,${pulse})`;
+    ctx.font = '700 11px Arial, sans-serif';
+    ctx.fillText('S P A C E   T O   K I C K', CFG.CANVAS_W / 2, y0 + H + 22);
+  }
 }
 
 /* ---------------- on-field text ---------------- */

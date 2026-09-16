@@ -48,6 +48,7 @@ Object.assign(ACT, {
   throwTo:    i => send({ type: 'throw', idx: i }),
   xp:         () => send({ type: 'xp' }),
   two:        () => send({ type: 'two' }),
+  kick:       () => send({ type: 'kick' }),
   advance:    () => send({ type: 'advance' }),
   nextRound:  () => send({ type: 'advance' }),
   restart:    () => send({ type: 'restart' }),
@@ -91,6 +92,10 @@ document.addEventListener('keydown', e => {
       else if (k === '2') ACT.two();
       break;
 
+    case 'KICK':
+      if (isOff() && k === ' ') ACT.kick();
+      break;
+
     case 'RESULT':
     case 'BREAK':
       if (k === ' ' && myTeam >= 0) ACT.advance();   // either player may continue
@@ -108,6 +113,7 @@ document.addEventListener('keyup', e => {
   const unit = unitForKey(k);
   if (unit) send({ type: 'boost', unit, on: false });
 });
+canvas.addEventListener('click', () => { if (G.phase === 'KICK' && isOff()) ACT.kick(); });
 
 /* ---------------- lobby ---------------- */
 

@@ -29,10 +29,11 @@ const PORT = process.env.PORT || 3000;
 const bundle = ['js/config.js', 'js/engine.js', 'js/game.js']
   .map(f => fs.readFileSync(path.join(ROOT, f), 'utf8')).join('\n') +
   `\nglobalThis.GAME = { CFG, UNITS, G, startGame, startRound, choosePlay, snap, endPlay,
-     attemptFieldGoal, attemptExtraPoint, goForTwo, advance, updatePlay };`;
+     attemptFieldGoal, attemptExtraPoint, goForTwo, advance, updatePlay, tickKick, stopKick };`;
 vm.runInThisContext(bundle, { filename: 'game-bundle.js' });
 const { CFG, UNITS, G, startGame, startRound, choosePlay, snap, endPlay,
-        attemptFieldGoal, attemptExtraPoint, goForTwo, advance, updatePlay } = globalThis.GAME;
+        attemptFieldGoal, attemptExtraPoint, goForTwo, advance, updatePlay,
+        tickKick, stopKick } = globalThis.GAME;
 
 /* ---- static files ---- */
 const MIME = { '.html': 'text/html', '.js': 'text/javascript', '.css': 'text/css',
@@ -125,6 +126,7 @@ function handle(ws, m) {
     }
     case 'xp':    if (isOff && G.phase === 'PAT_CHOICE') attemptExtraPoint(); return;
     case 'two':   if (isOff && G.phase === 'PAT_CHOICE') goForTwo(); return;
+    case 'kick':  if (isOff && G.phase === 'KICK') stopKick(); return;
 
     /* --- defense only (anyone may let go, only the defense may press) --- */
     case 'boost':
@@ -178,9 +180,12 @@ setInterval(() => {
     }
   }
 
-  /* stream state every tick while the ball is live, ten times a second otherwise */
+  /* the kick meter is a reaction test: real clock, not the slowed one */
+  if (G.phase === 'KICK') tickKick(dt);
+
+  /* stream every tick while something is moving, ten times a second otherwise */
   tickNo++;
-  if (G.phase === 'LIVE' || tickNo % 6 === 0) broadcast();
+  if (G.phase === 'LIVE' || G.phase === 'KICK' || tickNo % 6 === 0) broadcast();
 }, 1000 / 60);
 
 /* ---- what the browsers see. Receivers carry a position history for the

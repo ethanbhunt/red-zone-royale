@@ -26,6 +26,7 @@ Object.assign(ACT, {
   throwTo:    i => { pendingThrow = i; },
   xp:         () => attemptExtraPoint(),
   two:        () => goForTwo(),
+  kick:       () => stopKick(),
   advance:    () => { advance(); resultHandled = false; },
   nextRound:  () => startRound(),
   restart:    () => location.reload(),
@@ -57,6 +58,10 @@ document.addEventListener('keydown', e => {
       break;
     }
 
+    case 'KICK':
+      if (k === ' ') ACT.kick();
+      break;
+
     case 'RESULT':
       if (k === ' ') ACT.advance();
       break;
@@ -77,6 +82,7 @@ document.addEventListener('keydown', e => {
 });
 
 document.addEventListener('keyup', e => { held[e.key.toLowerCase()] = false; });
+canvas.addEventListener('click', () => { if (G.phase === 'KICK') ACT.kick(); });
 
 /* ---------------- menu ---------------- */
 
@@ -120,6 +126,9 @@ function frame(now) {
       setTimeout(() => endPlay(G.play.result), 700);   // let the moment land
     }
   }
+
+  /* the kick meter is a reaction test, so it runs on the real clock */
+  if (G.phase === 'KICK') tickKick(dt);
 
   render(ctx, G);
   syncUI();

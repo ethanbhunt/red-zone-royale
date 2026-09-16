@@ -64,11 +64,12 @@ function playCard(i, extraClass) {
 }
 
 function fgCard(extraClass) {
+  const d = kickDistance();
   return `<button class="card kick ${extraClass}" data-kick="1">
     <span class="num">G</span>
     <span class="cname">FIELD GOAL</span>
-    <span class="ctag">${Math.round(G.ballX + 17)} YARDS</span>
-    <span class="cblurb">${Math.round(fieldGoalChance() * 100)}% chance. Three points, and the other team gets the ball.</span>
+    <span class="ctag">${d} YARDS · ${kickDifficulty(d)}</span>
+    <span class="cblurb">Three points if you hit the meter. The other team gets the ball either way.</span>
   </button>`;
 }
 
@@ -132,6 +133,17 @@ function buildPlaybox() {
         </button>`).join('');
     }
 
+  } else if (G.phase === 'KICK') {
+    const k = G.kick;
+    if (isOff()) {
+      label.textContent = k.type === 'FG' ? 'FIELD GOAL' : 'EXTRA POINT';
+      box.innerHTML = `<div class="narrate">Hit <kbd>space</kbd> (or click) when the marker is in the gold.
+        Longer kicks: smaller window, faster marker.</div>`;
+    } else {
+      label.textContent = k.type === 'FG' ? 'FIELD GOAL ATTEMPT' : 'EXTRA POINT ATTEMPT';
+      box.innerHTML = `<div class="narrate">${offName()} lines up a ${k.distance}-yard kick. Nothing to do but watch.</div>`;
+    }
+
   } else if (G.phase === 'RESULT') {
     label.textContent = G.message;
     box.innerHTML = `<div class="narrate">${G.sub}<br><span class="hint">PRESS SPACE</span></div>`;
@@ -141,7 +153,7 @@ function buildPlaybox() {
       label.textContent = 'AFTER THE TOUCHDOWN';
       box.innerHTML = `
         <button class="card" data-xp="1"><span class="num">1</span><span class="cname">KICK PAT</span>
-          <span class="ctag">${Math.round(CFG.XP_MAKE * 100)}%</span><span class="cblurb">One point, nearly automatic.</span></button>
+          <span class="ctag">20 YARDS · CHIP SHOT</span><span class="cblurb">One point. A wide sweet spot, but you still have to hit it.</span></button>
         <button class="card" data-two="1"><span class="num">2</span><span class="cname">GO FOR TWO</span>
           <span class="ctag">HIGH RISK</span><span class="cblurb">One snap from the three for two points.</span></button>`;
       box.querySelector('[data-xp]').onclick = () => ACT.xp();

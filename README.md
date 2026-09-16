@@ -13,7 +13,8 @@ offense takes the right.
 | **Offense** | `1` `2` `3` `4` | pick a play |
 | | `SPACE` | snap the ball |
 | | `J` `K` `L` `;` | throw to WR1 / WR2 / TE / RB |
-| | `G` | attempt a field goal (4th down only) |
+| | `G` | line up a field goal (4th down only) |
+| | `SPACE` | stop the kick meter |
 | **Defense** | `A` | hold to boost the pass rush |
 | | `S` | hold to boost the linebackers |
 | | `D` | hold to boost the cornerbacks |
@@ -37,6 +38,12 @@ the line and it's a **handoff** (or a **pitch** if he's started moving) — it
 can't be dropped or picked, and the offensive line holds the front seven off
 him for about a second. Pouring energy into the rush cuts that window in half,
 which is how the defense stuffs a run.
+
+**Kicks are a meter, not a dice roll.** Field goals and extra points put a
+marker sweeping across a bar; hit `SPACE` (or click) when it's in the gold.
+Longer kicks shrink the sweet spot and speed the marker up, and the ball
+visibly sails wide of the uprights on a miss. Online, only the kicking team's
+screen accepts the press; everyone else watches the same marker move.
 
 Separation comes from **reaction time**: a defender in man coverage chases
 where the receiver *was* a fraction of a second ago, so sharp route breaks get
@@ -73,7 +80,8 @@ Hot-seat mode still works exactly as before: just open `index.html`.
 The whole game is the overtime shootout:
 
 - **Round 1** — each team gets one possession from the 25. Touchdowns can be
-  followed by a kicked extra point or a two-point try. Field goals allowed.
+  followed by a kicked extra point or a two-point try. Field goals allowed
+  on fourth down.
 - **Round 2** — same, but a touchdown *must* be followed by a two-point try.
 - **Round 3+** — alternating two-point attempts only, one snap from the 3.
 
@@ -109,6 +117,7 @@ Useful knobs:
 - `CATCH_*` — the completion curve as a function of separation
 - `RUN_BLOCK` / `TACKLE_PROB` / `CUT_LOOKAHEAD` — how long the line holds, how often contact brings a runner down, and how sharply he cuts
 - `TEMPO` — global slow-motion dial for the whole play (1.0 = real time)
+- `KICK_SWEET_*` / `KICK_SPEED_*` — how forgiving the kick meter is and how fast it moves, by distance
 
 Adding a play is just another entry in `PLAYS`: a name, a blurb, and four
 routes keyed `WR1`/`WR2`/`TE`/`RB`, given as `{d, l}` waypoints (`d` = yards downfield, `l` = yards

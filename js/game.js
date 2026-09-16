@@ -3,7 +3,7 @@
 
    Phases:
      MENU -> PRESNAP -> LIVE -> RESULT -> (PRESNAP | PAT | BREAK)
-                                       -> GAMEOVER
+                    \-> KICK -> RESULT           -> GAMEOVER
 
    Every rule about downs, scoring and overtime rounds lives
    here. The engine moves dots; this file decides what it meant.
@@ -26,6 +26,7 @@ const G = {
   energy: CFG.ENERGY_POOL,
   boosts: { DL: false, LB: false, CB: false, S: false },
   play: null,
+  kick: null,              // the live kick meter, when there is one
   selectedPlay: 0,
   playChosen: false,
   message: '',
@@ -74,6 +75,7 @@ function beginPossession(teamIdx) {
 /* Build the formation and wait for a play call, then the snap. */
 function toPresnap() {
   G.phase = 'PRESNAP';
+  G.kick = null;
   G.playChosen = false;          // offense has to call something first
   G.play = startPlay(G.ballX, G.selectedPlay);
   clearBoosts();
@@ -162,35 +164,92 @@ function addScore(n) { G.teams[G.possIndex].score += n; }
 
 /* ---------------- kicking ---------------- */
 
-function fieldGoalChance() {
-  const distance = G.ballX + 17;
-  return Math.max(0.15, Math.min(0.98, 0.97 - Math.max(0, distance - 20) * 0.017));
-}
+/* A kick is a Madden-style meter, not a dice roll. attemptFieldGoal() and
+   attemptExtraPoint() just start it; tickKick() moves the marker every
+   frame; stopKick() is the player's press; resolveKick() runs once the
+   ball has landed. G.kick holds the whole thing so the renderer (and the
+   other computer, online) can draw it. */
+
+function kickDistance()      { return Math.round(G.ballX + 17); }
+function kickDifficulty(d)   { return d <= 25 ? 'CHIP SHOT' : d <= 38 ? 'MAKEABLE' : d <= 48 ? 'LONG' : 'BOMB'; }
 
 function attemptFieldGoal() {
-  const good = Math.random() < fieldGoalChance();
-  const distance = Math.round(G.ballX + 17);
-  G.phase = 'RESULT';
-  if (good) {
-    addScore(3);
-    G.message = 'IT IS GOOD';
-    G.sub = `${distance}-yard field goal · ${offTeam().name} +3`;
-  } else {
-    G.message = 'NO GOOD';
-    G.sub = `${distance}-yard attempt sails wide.`;
-  }
-  G.endsPossession = true;
-  G.play.result = { type: good ? 'FG' : 'FGMISS', text: good ? 'IT IS GOOD' : 'NO GOOD', yards: 0 };
+  if (G.phase !== 'PRESNAP' || G.isPAT || G.down !== 4) return;
+  beginKick('FG');
 }
 
 function attemptExtraPoint() {
-  const good = Math.random() < CFG.XP_MAKE;
-  G.phase = 'RESULT';
-  if (good) { addScore(1); G.message = 'EXTRA POINT GOOD'; G.sub = `${offTeam().name} +1`; }
-  else { G.message = 'EXTRA POINT MISSED'; G.sub = 'It hooks left.'; }
+  if (G.phase !== 'PAT_CHOICE') return;
   G.pendingPAT = false;
+  G.ballX = CFG.PAT_YARD;                 // kicked from the 3, a 20-yarder
+  beginKick('XP');
+}
+
+function beginKick(type) {
+  const distance = kickDistance();
+  const sweet = Math.max(CFG.KICK_SWEET_MIN, Math.min(CFG.KICK_SWEET_MAX,
+                  CFG.KICK_SWEET_BASE - distance * CFG.KICK_SWEET_PER_YD));
+  G.phase = 'KICK';
+  G.kick = {
+    type, distance, sweet,
+    speed: CFG.KICK_SPEED_BASE + distance * CFG.KICK_SPEED_PER_YD,
+    pos: 0, dir: 1,                       // marker position 0..1 and heading
+    t: 0, stopped: false, good: null, flight: null, done: false,
+  };
+  G.play = startPlay(G.ballX, G.selectedPlay);   // a frozen formation to draw under it
+  G.message = type === 'FG' ? `${distance}-YARD FIELD GOAL` : 'EXTRA POINT';
+  G.sub = '';
+  clearBoosts();
+}
+
+/* Every frame while G.phase === 'KICK'. dt is REAL seconds. */
+function tickKick(dt) {
+  const k = G.kick;
+  if (!k || k.done) return;
+  if (!k.stopped) {
+    k.t += dt;
+    k.pos += k.dir * k.speed * dt;
+    if (k.pos >= 1) { k.pos = 1; k.dir = -1; }
+    if (k.pos <= 0) { k.pos = 0; k.dir =  1; }
+    if (k.t >= CFG.KICK_TIMEOUT) stopKick();
+    return;
+  }
+  k.flight.t += dt;
+  if (k.flight.t >= k.flight.dur) resolveKick();
+}
+
+/* The press. */
+function stopKick() {
+  const k = G.kick;
+  if (!k || k.stopped) return;
+  k.stopped = true;
+  const offset = k.pos - 0.5;                       // -0.5 .. +0.5
+  k.good = Math.abs(offset) <= k.sweet / 2;
+  /* Map the edges of the sweet spot onto the uprights, so a kick that
+     just misses the gold visibly sails just outside the post. */
+  const lateral = (offset / (k.sweet / 2)) * CFG.POST_HALF;
+  k.flight = {
+    t: 0, dur: CFG.KICK_FLIGHT,
+    fromX: G.ballX + 7, fromY: 0,
+    toX: -10.5, toY: Math.max(-12, Math.min(12, lateral)),
+    lateral,
+  };
+}
+
+function resolveKick() {
+  const k = G.kick;
+  const side = k.flight.lateral < 0 ? 'LEFT' : 'RIGHT';
+  G.phase = 'RESULT';
+  if (k.type === 'FG') {
+    if (k.good) { addScore(3); G.message = 'IT IS GOOD';  G.sub = `${k.distance}-yard field goal · ${offTeam().name} +3`; }
+    else        {              G.message = `WIDE ${side}`; G.sub = `${k.distance}-yard attempt misses. No points.`; }
+  } else {
+    if (k.good) { addScore(1); G.message = 'EXTRA POINT GOOD';   G.sub = `${offTeam().name} +1`; }
+    else        {              G.message = 'EXTRA POINT MISSED'; G.sub = `Hooks ${side.toLowerCase()}.`; }
+  }
   G.endsPossession = true;
-  G.play.result = { type: 'XP', text: G.message, yards: 0 };
+  G.play.result = { type: k.type + (k.good ? '' : 'MISS'), text: G.message, yards: 0 };
+  k.done = true;             // stays around so the result screen can show where it landed
 }
 
 /* Go for two: a single snap from the 3. */
