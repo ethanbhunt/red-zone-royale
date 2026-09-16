@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Red Zone Royale</title>
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+<div id="app">
+
+  <!-- ===== SCOREBOARD ===== -->
+  <header id="scoreboard">
+    <div class="team" id="team0">
+      <span class="tname">HOME</span>
+      <span class="tscore">0</span>
+    </div>
+    <div id="centerinfo">
+      <div id="roundlabel">ROUND 1</div>
+      <div id="downlabel">1ST &amp; 10</div>
+    </div>
+    <div class="team" id="team1">
+      <span class="tscore">0</span>
+      <span class="tname">AWAY</span>
+    </div>
+  </header>
+
+  <!-- ===== FIELD ===== -->
+  <div id="stage">
+    <canvas id="field" width="1000" height="560"></canvas>
+
+    <!-- floating banner for big messages -->
+    <div id="banner" class="hidden"></div>
+
+    <!-- title / menu screen -->
+    <div id="menu">
+      <h1>RED ZONE ROYALE</h1>
+      <p class="sub">2-player overtime shootout</p>
+      <div class="namerow">
+        <input id="name0" maxlength="10" value="HOME">
+        <span class="vs">VS</span>
+        <input id="name1" maxlength="10" value="AWAY">
+      </div>
+      <button id="startbtn">KICK OFF</button>
+      <div class="controls">
+        <div><b>OFFENSE</b> &nbsp;<kbd>1</kbd><kbd>2</kbd><kbd>3</kbd><kbd>4</kbd> pick play &nbsp;·&nbsp; <kbd>space</kbd> snap &nbsp;·&nbsp; <kbd>J</kbd><kbd>K</kbd><kbd>L</kbd><kbd>;</kbd> throw</div>
+        <div><b>DEFENSE</b> &nbsp;hold <kbd>A</kbd> rush &nbsp; <kbd>S</kbd> linebackers &nbsp; <kbd>D</kbd> corners &nbsp; <kbd>F</kbd> safeties</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== BOTTOM CONTROL BAR ===== -->
+  <footer id="hud">
+    <!-- defense energy -->
+    <div id="energybox">
+      <div class="hudlabel">DEFENSE ENERGY</div>
+      <div id="energybar"><div id="energyfill"></div></div>
+      <div id="units">
+        <div class="unit" data-unit="DL"><kbd>A</kbd><span>RUSH</span></div>
+        <div class="unit" data-unit="LB"><kbd>S</kbd><span>LB</span></div>
+        <div class="unit" data-unit="CB"><kbd>D</kbd><span>CB</span></div>
+        <div class="unit" data-unit="S"><kbd>F</kbd><span>SAF</span></div>
+      </div>
+    </div>
+
+    <!-- offense play call -->
+    <div id="playbox">
+      <div class="hudlabel" id="playlabel">CHOOSE YOUR PLAY</div>
+      <div id="playcards"></div>
+    </div>
+  </footer>
+
+</div>
+
+<script src="js/config.js"></script>
+<script src="js/engine.js"></script>
+<script src="js/render.js"></script>
+<script src="js/game.js"></script>
+<script src="js/main.js"></script>
+</body>
+</html>
