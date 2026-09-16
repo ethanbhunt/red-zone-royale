@@ -32,6 +32,13 @@
     <!-- floating banner for big messages -->
     <div id="banner" class="hidden"></div>
 
+    <!-- offense must call a play before the ball can be snapped -->
+    <div id="playpicker" class="hidden">
+      <div class="ppttl">OFFENSE — CALL YOUR PLAY</div>
+      <div id="ppcards"></div>
+      <div class="ppfoot">pick with <kbd>1</kbd><kbd>2</kbd><kbd>3</kbd><kbd>4</kbd> or click</div>
+    </div>
+
     <!-- title / menu screen -->
     <div id="menu">
       <h1>RED ZONE ROYALE</h1>
@@ -43,7 +50,7 @@
       </div>
       <button id="startbtn">KICK OFF</button>
       <div class="controls">
-        <div><b>OFFENSE</b> &nbsp;<kbd>1</kbd><kbd>2</kbd><kbd>3</kbd><kbd>4</kbd> pick play &nbsp;·&nbsp; <kbd>space</kbd> snap &nbsp;·&nbsp; <kbd>J</kbd><kbd>K</kbd><kbd>L</kbd><kbd>;</kbd> throw</div>
+        <div><b>OFFENSE</b> &nbsp;<kbd>1</kbd><kbd>2</kbd><kbd>3</kbd><kbd>4</kbd> call play &nbsp;·&nbsp; <kbd>space</kbd> snap &nbsp;·&nbsp; <kbd>J</kbd><kbd>K</kbd><kbd>L</kbd><kbd>;</kbd> throw to WR1/WR2/TE/RB</div>
         <div><b>DEFENSE</b> &nbsp;hold <kbd>A</kbd> rush &nbsp; <kbd>S</kbd> linebackers &nbsp; <kbd>D</kbd> corners &nbsp; <kbd>F</kbd> safeties</div>
       </div>
     </div>

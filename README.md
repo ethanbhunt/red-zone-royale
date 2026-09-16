@@ -12,7 +12,7 @@ offense takes the right.
 |---|---|---|
 | **Offense** | `1` `2` `3` `4` | pick a play |
 | | `SPACE` | snap the ball |
-| | `J` `K` `L` `;` | throw to X / Z / TE / RB |
+| | `J` `K` `L` `;` | throw to WR1 / WR2 / TE / RB |
 | | `G` | attempt a field goal (4th down only) |
 | **Defense** | `A` | hold to boost the pass rush |
 | | `S` | hold to boost the linebackers |
@@ -30,6 +30,13 @@ a unit key is held. Every point poured into the rush is a point not covering
 the deep post, so you are always choosing. Energy refills each possession, and
 unspent energy carries across downs within a drive — so you can save it for
 fourth down.
+
+The running back lines up beside the quarterback and holds in the backfield
+for a beat before releasing into his route. Press `;` while he's still behind
+the line and it's a **handoff** (or a **pitch** if he's started moving) — it
+can't be dropped or picked, and the offensive line holds the front seven off
+him for about a second. Pouring energy into the rush cuts that window in half,
+which is how the defense stuffs a run.
 
 Separation comes from **reaction time**: a defender in man coverage chases
 where the receiver *was* a fraction of a second ago, so sharp route breaks get
@@ -71,7 +78,9 @@ Useful knobs:
 - `ENERGY_POOL` / `ENERGY_DRAIN` — how much defense you get per possession
 - `BOOST_DL` / `BOOST_COV` / `COVER_LAG` — how much a held key actually matters
 - `CATCH_*` — the completion curve as a function of separation
+- `RUN_BLOCK` / `TACKLE_PROB` / `CUT_LOOKAHEAD` — how long the line holds, how often contact brings a runner down, and how sharply he cuts
+- `TEMPO` — global slow-motion dial for the whole play (1.0 = real time)
 
 Adding a play is just another entry in `PLAYS`: a name, a blurb, and four
-routes given as `{d, l}` waypoints (`d` = yards downfield, `l` = yards
+routes keyed `WR1`/`WR2`/`TE`/`RB`, given as `{d, l}` waypoints (`d` = yards downfield, `l` = yards
 left/right of center).

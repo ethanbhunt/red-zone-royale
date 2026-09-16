@@ -104,11 +104,12 @@ function startPlay(losX, playIdx) {
     const next = path[1] || start;
     const d = dist(start.x, start.y, next.x, next.y) || 1;
     return {
-      id: t.id, label: t.label, name: t.name,
+      id: t.id, label: t.label, name: t.name, short: t.short,
       x: start.x, y: start.y,
       path, seg: 1,
       dir: { x: (next.x - start.x) / d, y: (next.y - start.y) / d },
       speed: t.speed,
+      hold: t.hold || 0,               // seconds he waits before releasing
       hist: [{ t: 0, x: start.x, y: start.y }],
     };
   });
@@ -135,6 +136,8 @@ function startPlay(losX, playIdx) {
 
   /* --- offensive line (decorative, they just hold their ground) --- */
   const oline = [-3.4, -1.7, 0, 1.7, 3.4].map(y => ({ x: losX + 0.9, y }));
+
+  for (const d of defs) d.beatenUntil = 0;
 
   return {
     t: 0,
@@ -173,10 +176,17 @@ function updatePlay(P, dt, input) {
   /* ---------- 2. receivers run their routes ---------- */
   for (const r of P.recs) {
     if (P.carrier === r) continue;              // ballcarrier is handled below
-    moveAlongPath(r, r.speed * dt);
+    if (P.t >= r.hold) moveAlongPath(r, r.speed * dt);   // RB waits for a beat
     clampToField(r);
     recordHistory(r, P.t);
   }
+
+  /* After a handoff the offensive line ties the rushers up for a moment.
+     Pouring energy into the rush cuts that window in half. */
+  const isBlocked = () => P.exchangeT !== undefined &&
+    (P.t - P.exchangeT) < (boosts.DL ? CFG.RUN_BLOCK_BOOSTED : CFG.RUN_BLOCK);
+
+  if (P.flash) { P.flash.t -= dt; if (P.flash.t <= 0) P.flash = null; }
 
   /* ---------- 3. defenders ---------- */
   /* How much the offensive line is still holding up. Starts as a
@@ -195,7 +205,14 @@ function updatePlay(P, dt, input) {
     const s = d.speed * spd(d.unit) * dt;
 
     if (chaseTarget) {
-      const pace = CFG.PURSUE[d.unit] * spd(d.unit);
+      let pace = CFG.PURSUE[d.unit] * spd(d.unit);
+      if (isBlocked() && (d.unit === 'DL' || d.unit === 'LB')) {
+        pace *= 0.35;   // the line is on the DL and climbing to the LBs
+      }
+      /* defensive backs are covering somebody; it takes them a moment to
+         recognise the run and come up */
+      if ((d.unit === 'CB' || d.unit === 'S') && P.exchangeT !== undefined &&
+          P.t - P.exchangeT < CFG.DB_READ) pace *= 0.4;
       const gap  = dist(d.x, d.y, chaseTarget.x, chaseTarget.y);
       /* If we are TRAILING the runner (further from the goal than he is)
          we cut an angle at where he is headed. If we are already goal-side
@@ -232,11 +249,16 @@ function updatePlay(P, dt, input) {
         moveToward(d, P.losX - 14, side * 7, s);
       }
     } else {
-      /* man coverage, chasing a stale position */
       const r = P.recs[d.assign];
-      const lag = CFG.COVER_LAG * (boosts[d.unit] ? CFG.COVER_LAG_BOOST : 1);
-      const ghost = pastPos(r, P.t - lag);
-      moveToward(d, ghost.x, ghost.y, s);
+      if (P.t < r.hold) {
+        /* my man is still in the backfield: hold my spot and read */
+        moveToward(d, P.losX - 5, d.y, s * 0.4);
+      } else {
+        /* man coverage, chasing a stale position */
+        const lag = CFG.COVER_LAG * (boosts[d.unit] ? CFG.COVER_LAG_BOOST : 1);
+        const ghost = pastPos(r, P.t - lag);
+        moveToward(d, ghost.x, ghost.y, s);
+      }
     }
   }
 
@@ -276,17 +298,40 @@ function updatePlay(P, dt, input) {
   /* ---------- 6. run after catch ---------- */
   if (P.phase === 'YAC') {
     const c = P.carrier;
-    /* head for the end zone, drifting toward the middle a little */
-    const aimY = c.y * 0.9;
-    moveToward(c, c.x - 10, aimY, c.speed * dt);
+    /* Run to daylight: head for the end zone, but veer away from any
+       defender closing in from in front. Defenders behind us are ignored;
+       either we outrun them or we do not. */
+    let push = 0;
+    for (const d of P.defs) {
+      if (d.x > c.x + 1) continue;
+      const dx = d.x - c.x, dy = d.y - c.y;
+      const dd = Math.hypot(dx, dy);
+      if (dd >= CFG.DAYLIGHT || dd < 0.01) continue;
+      /* a defender dead ahead gives no lateral signal — cut toward the
+         side of the field with more room */
+      const side = Math.abs(dy) < 0.6 ? (c.y > 0 ? -1 : 1) : -Math.sign(dy);
+      push += side * (CFG.DAYLIGHT - dd);
+    }
+    const aimY = Math.max(-CFG.SIDELINE + 1, Math.min(CFG.SIDELINE - 1,
+                   c.y * 0.97 + push * 1.6));
+    moveToward(c, c.x - CFG.CUT_LOOKAHEAD, aimY, c.speed * dt);
     clampToField(c);
     P.ball.x = c.x; P.ball.y = c.y; P.ball.arc = 0;
 
     if (c.x <= 0) return finish(P, 'TD', c.x, 'TOUCHDOWN!');
 
     for (const d of P.defs) {
+      if (d.unit === 'DL' && isBlocked()) continue;    // tied up by the line
+      if (d.beatenUntil > P.t) continue;               // already whiffed
       if (dist(d.x, d.y, c.x, c.y) <= CFG.TACKLE_DIST) {
-        return finish(P, 'TACKLE', c.x, 'TACKLED');
+        /* Contact. Most of the time he goes down; sometimes he shrugs it
+           off, and that defender is out of the play for a moment. This is
+           where broken tackles and long runs come from. */
+        let p = boosts[d.unit] ? CFG.TACKLE_PROB_BOOSTED : CFG.TACKLE_PROB;
+        if (d.unit === 'LB' && isBlocked()) p *= 0.6;   // shedding a block
+        if (Math.random() < p) return finish(P, 'TACKLE', c.x, 'TACKLED');
+        d.beatenUntil = P.t + CFG.BEATEN_FOR;
+        P.flash = { text: 'BROKE IT', t: 0.7 };
       }
     }
   }
@@ -304,6 +349,19 @@ function updatePlay(P, dt, input) {
 /* ---------- release the ball ---------- */
 function throwBall(P, idx) {
   const r = P.recs[idx];
+
+  /* Still behind the line? That is not a pass, it is an exchange:
+     no drop, no interception, he is simply the ballcarrier now. */
+  if (r.hold && r.x > P.losX - 0.5) {
+    P.targetIdx = idx;
+    P.phase = 'YAC';
+    P.carrier = r;
+    P.exchangeT = P.t;
+    P.ball = { x: r.x, y: r.y, arc: 0, airYards: 0 };
+    P.flash = { text: P.t < r.hold ? 'HANDOFF' : 'PITCH', t: 0.9 };
+    return;
+  }
+
   const d = dist(P.qb.x, P.qb.y, r.x, r.y);
   P.targetIdx = idx;
   P.phase = 'FLIGHT';

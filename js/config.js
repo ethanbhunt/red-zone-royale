@@ -28,15 +28,25 @@ const CFG = {
   PAT_YARD: 3,        // 2-pt conversions & extra points snap from the 3
   XP_MAKE: 0.94,      // extra point kick success rate
   ENERGY_POOL: 100,   // defense energy, refilled each possession
-  ENERGY_DRAIN: 13,   // energy per second while holding a unit key
-  BOOST_DL: 1.62,     // rush gets a big multiplier: it is the defense's clock
-  BOOST_COV: 1.30,    // coverage gets a smaller one
+  ENERGY_DRAIN: 15,   // energy per simulation-second while holding a unit key
+  BOOST_DL: 1.90,     // rush gets a big multiplier: it is the defense's clock
+  BOOST_COV: 1.18,    // coverage gets a smaller one
   COVER_LAG: 0.20,    // seconds a man defender trails the receiver.
                       // THIS is where separation comes from: the defender
                       // chases where you WERE, so sharp cuts break him off.
-  COVER_LAG_BOOST: 0.55, // boosting a unit cuts its reaction time by this much
+  COVER_LAG_BOOST: 0.45, // boosting a unit cuts its reaction time by this much.
+                      // This, not BOOST_COV, is what really decides whether a
+                      // covered receiver is catchable. Raise it to make the
+                      // defense's boost gentler, lower it to make it brutal.
 
-  /* ---- play clock ---- */
+  /* ---- pace ----
+     A single global slow-motion dial. Every speed, the blocking ramp
+     and the ball flight all read from the same simulation clock, so
+     turning this down slows the whole play without disturbing any of
+     the balance between the pieces. 1.0 = real time. */
+  TEMPO: 0.80,
+
+  /* ---- play clock (in simulation seconds, so TEMPO scales it too) ---- */
   MAX_HOLD: 5.0,      // QB must throw within this many seconds
 
   /* ---- speeds (yards / second) ---- */
@@ -51,7 +61,7 @@ const CFG = {
 
   /* Once somebody is running with the ball everyone turns into a
      pursuer, and they take an intercept angle instead of chasing. */
-  PURSUE: { DL: 7.0, LB: 8.0, CB: 8.4, S: 8.4 },
+  PURSUE: { DL: 5.5, LB: 7.6, CB: 8.4, S: 8.4 },   // a back past the LBs is gone
 
   /* ---- pass rush ---- */
   BLOCK_EARLY: 0.25,  // rush speed multiplier while the line holds
@@ -59,6 +69,21 @@ const CFG = {
   BLOCK_T1: 3.4,      // ...and fully broken down by here
   SACK_DIST: 1.0,     // a rusher this close to the QB = sack
   SACK_LOSS: 6,       // yards lost on a sack
+
+  /* ---- the run game ----
+     Throwing to the RB while he is still behind the line is a handoff
+     (or a pitch, if he has started moving). It cannot be dropped or
+     picked, and for a moment the offensive line holds the rushers off
+     him — that window is what lets a back get through the line. */
+  RUN_BLOCK: 1.3,         // seconds the front seven are tied up after a handoff
+  RUN_BLOCK_BOOSTED: 0.75, // ...unless the defense is pouring into the rush
+  DB_READ: 0.5,           // corners and safeties read pass first for this long
+  DAYLIGHT: 4.5,          // a ballcarrier veers away from defenders this close
+  CUT_LOOKAHEAD: 3.5,     // he steers toward a point this far ahead. Smaller
+                          // = sharper cuts. (10 here and he barely turns.)
+  TACKLE_PROB: 0.65,      // contact brings him down this often...
+  TACKLE_PROB_BOOSTED: 0.92, // ...or this often if that unit is boosted
+  BEATEN_FOR: 0.7,        // a defender who whiffs is out of the play this long
 
   /* ---- catching ---- */
   CATCH_BASE: 0.26,   // completion % with a defender right on top of you
@@ -87,10 +112,10 @@ const PLAYS = [
     tag: 'DEEP SHOT',
     paRush: 1.0,
     routes: {
-      X:  [{d:0,l:-12},{d:26,l:-12}],
-      Z:  [{d:0,l: 12},{d:26,l: 12}],
+      WR1:[{d:0,l:-12},{d:26,l:-12}],
+      WR2:[{d:0,l: 12},{d:26,l: 12}],
       TE: [{d:0,l:  4},{d:20,l:  6}],
-      RB: [{d:-2,l: -3},{d: 2,l: -8},{d: 4,l:-12}],
+      RB: [{d:-5,l: -4},{d: 2,l: -8},{d: 4,l:-12}],
     },
   },
   {
@@ -99,10 +124,10 @@ const PLAYS = [
     tag: 'QUICK GAME',
     paRush: 1.0,
     routes: {
-      X:  [{d:0,l:-12},{d:3,l:-8},{d:4,l: 10}],
-      Z:  [{d:0,l: 12},{d:5,l: 8},{d:6,l:-10}],
+      WR1:[{d:0,l:-12},{d:3,l:-8},{d:4,l: 10}],
+      WR2:[{d:0,l: 12},{d:5,l: 8},{d:6,l:-10}],
       TE: [{d:0,l:  4},{d:10,l: 6},{d:17,l: 13}],
-      RB: [{d:-2,l: -3},{d: 1,l: -9},{d: 2,l:-12}],
+      RB: [{d:-5,l: -4},{d: 1,l: -9},{d: 2,l:-12}],
     },
   },
   {
@@ -111,10 +136,10 @@ const PLAYS = [
     tag: 'INTERMEDIATE',
     paRush: 1.0,
     routes: {
-      X:  [{d:0,l:-12},{d:8,l:-12},{d:9,l:-13}],
-      Z:  [{d:0,l: 12},{d:10,l: 11},{d:19,l: 13}],
+      WR1:[{d:0,l:-12},{d:8,l:-12},{d:9,l:-13}],
+      WR2:[{d:0,l: 12},{d:10,l: 11},{d:19,l: 13}],
       TE: [{d:0,l:  4},{d: 7,l:  3}],
-      RB: [{d:-2,l: -3},{d: 4,l:  5},{d: 6,l: 9}],
+      RB: [{d:-5,l: -4},{d: 4,l:  5},{d: 6,l: 9}],
     },
   },
   {
@@ -124,20 +149,22 @@ const PLAYS = [
     paRush: 0.45,     // rushers are slowed early by the fake
     rollout: 7,       // QB drifts this many yards sideways
     routes: {
-      X:  [{d:0,l:-12},{d:18,l:-4}],
-      Z:  [{d:0,l: 12},{d: 4,l: 6},{d: 5,l:-6}],
+      WR1:[{d:0,l:-12},{d:18,l:-4}],
+      WR2:[{d:0,l: 12},{d: 4,l: 6},{d: 5,l:-6}],
       TE: [{d:0,l:  4},{d: 3,l: 11},{d: 4,l: 13}],
-      RB: [{d:-2,l: -3},{d: 7,l: -6},{d:14,l:-10}],
+      RB: [{d:-5,l: -4},{d: 7,l: -6},{d:14,l:-10}],
     },
   },
 ];
 
-/* The four throwing options, in key order. */
+/* The four throwing options, in key order.
+   `name` is what the HUD says, `short` is what fits inside a 9px chip. */
 const TARGETS = [
-  { id:'X',  key:'j', label:'J', name:'X',  speed: CFG.SPD_WR },
-  { id:'Z',  key:'k', label:'K', name:'Z',  speed: CFG.SPD_WR },
-  { id:'TE', key:'l', label:'L', name:'TE', speed: CFG.SPD_TE },
-  { id:'RB', key:';', label:';', name:'RB', speed: CFG.SPD_RB },
+  { id:'WR1', key:'j', label:'J', name:'WR1', short:'W1', speed: CFG.SPD_WR },
+  { id:'WR2', key:'k', label:'K', name:'WR2', short:'W2', speed: CFG.SPD_WR },
+  { id:'TE',  key:'l', label:'L', name:'TE',  short:'TE', speed: CFG.SPD_TE },
+  { id:'RB',  key:';', label:';', name:'RB',  short:'RB', speed: CFG.SPD_RB,
+    hold: 0.7 },   // stays in the backfield this long before releasing
 ];
 
 /* Defensive units and the key that boosts them. */

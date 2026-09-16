@@ -146,3 +146,28 @@ kbd{
 
 .narrate{font-size:14px;color:var(--dim);line-height:1.6}
 #playlabel{font-size:11px;letter-spacing:.16em}
+
+/* ---------------- pre-snap play picker overlay ---------------- */
+#playpicker{
+  position:absolute;inset:0;z-index:5;
+  display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px;
+  background:rgba(8,11,16,.82);backdrop-filter:blur(4px);line-height:1.4;
+}
+.ppttl{font-size:13px;letter-spacing:.24em;font-weight:800;color:var(--gold)}
+.ppfoot{font-size:11px;letter-spacing:.1em;color:var(--dim)}
+#ppcards{display:flex;gap:10px;padding:0 22px;flex-wrap:wrap;justify-content:center}
+.card.pp{
+  width:186px;min-height:132px;padding:14px 15px;gap:3px;
+  background:var(--panel);border-color:#3a4759;
+}
+.card.pp:hover{border-color:var(--gold);transform:translateY(-3px);background:#222a1d}
+.card.pp .num{top:12px;right:13px;font-size:14px}
+.card.pp .cname{font-size:16px}
+.card.pp .cblurb{font-size:11.5px;margin-top:5px}
+
+/* ---------------- "play called, ready to snap" strip ---------------- */
+.called{display:flex;flex-direction:column;gap:2px;grid-column:1/-1}
+.called .cname.big{font-size:20px;letter-spacing:.05em}
+.called .hint{margin-top:7px;align-self:flex-start}
+.cblurb.dimmer{opacity:.5;font-size:10px;letter-spacing:.08em}
+.narrate kbd{margin:0 1px}

@@ -27,6 +27,7 @@ const G = {
   boosts: { DL: false, LB: false, CB: false, S: false },
   play: null,
   selectedPlay: 0,
+  playChosen: false,
   message: '',
   sub: '',
 };
@@ -70,9 +71,10 @@ function beginPossession(teamIdx) {
   toPresnap();
 }
 
-/* Build the formation and wait for the snap. */
+/* Build the formation and wait for a play call, then the snap. */
 function toPresnap() {
   G.phase = 'PRESNAP';
+  G.playChosen = false;          // offense has to call something first
   G.play = startPlay(G.ballX, G.selectedPlay);
   clearBoosts();
 }
@@ -80,11 +82,12 @@ function toPresnap() {
 function choosePlay(idx) {
   if (G.phase !== 'PRESNAP') return;
   G.selectedPlay = idx;
+  G.playChosen = true;
   G.play = startPlay(G.ballX, idx);
 }
 
 function snap() {
-  if (G.phase !== 'PRESNAP') return;
+  if (G.phase !== 'PRESNAP' || !G.playChosen) return;
   G.phase = 'LIVE';
   G.message = '';
   G.sub = '';

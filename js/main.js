@@ -28,8 +28,8 @@ document.addEventListener('keydown', e => {
 
     case 'PRESNAP':
       if (k >= '1' && k <= '4') choosePlay(+k - 1);
-      else if (k === ' ') snap();
       else if (k === 'g' && canKick()) attemptFieldGoal();
+      else if (k === ' ') snap();   // no-ops until a play has been called
       break;
 
     case 'LIVE': {
@@ -78,6 +78,11 @@ function frame(now) {
   const dt = Math.min(0.05, (now - last) / 1000);
   last = now;
 
+  /* The simulation runs on a slowed clock so a play is readable. One dial
+     scales everything at once — speeds, blocking, ball flight, energy —
+     which keeps the balance between them exactly as tuned. */
+  const sdt = dt * CFG.TEMPO;
+
   if (G.phase === 'LIVE' && G.play) {
     /* defense pours energy into whichever units are held */
     const wanted = {};
@@ -87,10 +92,10 @@ function frame(now) {
       wanted[u] = on;
       if (on) drains++;
     }
-    G.energy = Math.max(0, G.energy - drains * CFG.ENERGY_DRAIN * dt);
+    G.energy = Math.max(0, G.energy - drains * CFG.ENERGY_DRAIN * sdt);
     G.boosts = wanted;
 
-    updatePlay(G.play, dt, { throwAt: pendingThrow, boosts: wanted });
+    updatePlay(G.play, sdt, { throwAt: pendingThrow, boosts: wanted });
     pendingThrow = -1;
 
     if (G.play.result && !resultHandled) {
@@ -133,31 +138,37 @@ function syncUI() {
   });
 
   /* the part of the HUD that changes shape — only rebuild when needed */
-  const key = [G.phase, G.down, G.selectedPlay, G.round, G.message, G.pendingPAT].join('|');
-  if (key !== uiKey) { uiKey = key; buildPlaybox(); buildBanner(); }
+  const key = [G.phase, G.down, G.selectedPlay, G.round, G.message,
+               G.pendingPAT, G.playChosen, G.possIndex].join('|');
+  if (key !== uiKey) { uiKey = key; buildPlaybox(); buildPicker(); buildBanner(); }
 }
 
 function buildPlaybox() {
   const label = document.getElementById('playlabel');
   const box = document.getElementById('playcards');
 
-  if (G.phase === 'PRESNAP') {
-    label.textContent = G.isPAT ? 'TWO-POINT TRY — PICK YOUR PLAY' : 'PICK YOUR PLAY  ·  SPACE TO SNAP';
-    box.innerHTML = PLAYS.map((p, i) => `
-      <button class="card ${i === G.selectedPlay ? 'sel' : ''}" data-play="${i}">
-        <span class="num">${i + 1}</span>
-        <span class="cname">${p.name}</span>
-        <span class="ctag">${p.tag}</span>
+  if (G.phase === 'PRESNAP' && !G.playChosen) {
+    label.textContent = 'WAITING ON THE PLAY CALL';
+    box.innerHTML = `<div class="narrate">Offense is picking. Defense, get your left hand on
+      <kbd>A</kbd><kbd>S</kbd><kbd>D</kbd><kbd>F</kbd>.</div>`;
+
+  } else if (G.phase === 'PRESNAP') {
+    const p = PLAYS[G.selectedPlay];
+    label.textContent = 'READY';
+    box.innerHTML = `
+      <div class="called">
+        <span class="ctag">PLAY CALLED</span>
+        <span class="cname big">${p.name}</span>
         <span class="cblurb">${p.blurb}</span>
-      </button>`).join('') +
+        <span class="hint">SPACE TO SNAP</span>
+        <span class="cblurb dimmer">${'1'}-4 to change the call</span>
+      </div>` +
       (canKick() ? `<button class="card kick" data-kick="1">
         <span class="num">G</span>
         <span class="cname">FIELD GOAL</span>
         <span class="ctag">${Math.round(G.ballX + 17)} YARDS</span>
         <span class="cblurb">${Math.round(fieldGoalChance() * 100)}% chance. Three points and the ball goes back.</span>
       </button>` : '');
-    box.querySelectorAll('[data-play]').forEach(b =>
-      b.onclick = () => choosePlay(+b.dataset.play));
     const kb = box.querySelector('[data-kick]');
     if (kb) kb.onclick = attemptFieldGoal;
 
@@ -187,6 +198,33 @@ function buildPlaybox() {
     label.textContent = '';
     box.innerHTML = '';
   }
+}
+
+function buildPicker() {
+  const pp = document.getElementById('playpicker');
+  if (G.phase !== 'PRESNAP' || G.playChosen) { pp.classList.add('hidden'); return; }
+  pp.classList.remove('hidden');
+  pp.querySelector('.ppttl').textContent =
+    G.isPAT ? `${G.teams[G.possIndex].name} — TWO-POINT TRY` : `${G.teams[G.possIndex].name} — CALL YOUR PLAY`;
+
+  const cards = document.getElementById('ppcards');
+  cards.innerHTML = PLAYS.map((p, i) => `
+    <button class="card pp" data-play="${i}">
+      <span class="num">${i + 1}</span>
+      <span class="cname">${p.name}</span>
+      <span class="ctag">${p.tag}</span>
+      <span class="cblurb">${p.blurb}</span>
+    </button>`).join('') +
+    (!G.isPAT && G.down === 4 ? `<button class="card pp kick" data-kick="1">
+      <span class="num">G</span>
+      <span class="cname">FIELD GOAL</span>
+      <span class="ctag">${Math.round(G.ballX + 17)} YARDS</span>
+      <span class="cblurb">${Math.round(fieldGoalChance() * 100)}% chance. Three points, and the other team gets the ball.</span>
+    </button>` : '');
+  cards.querySelectorAll('[data-play]').forEach(b =>
+    b.onclick = () => choosePlay(+b.dataset.play));
+  const kb = cards.querySelector('[data-kick]');
+  if (kb) kb.onclick = attemptFieldGoal;
 }
 
 function buildBanner() {

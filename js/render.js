@@ -138,12 +138,13 @@ function drawPlayers(ctx, G, P) {
 
   for (const d of P.defs) {
     const boosted = G.boosts && G.boosts[d.unit] && G.energy > 0;
-    chip(ctx, sx(d.x), sy(d.y), 9, def, d.unit === 'DL' ? '' : d.unit, boosted);
+    chip(ctx, sx(d.x), sy(d.y), 9, def, d.unit === 'DL' ? '' : d.unit,
+         boosted ? 'rgba(245,205,40,0.5)' : false);
   }
 
   for (const r of P.recs) {
     const isTarget = P.carrier === r;
-    chip(ctx, sx(r.x), sy(r.y), 9, off, r.name, isTarget);
+    chip(ctx, sx(r.x), sy(r.y), 9, off, r.short, isTarget);
     if (G.phase === 'LIVE' && P.phase === 'LIVE') {
       keyBadge(ctx, sx(r.x), sy(r.y) - 22, r.label);
     }
@@ -153,10 +154,14 @@ function drawPlayers(ctx, G, P) {
   chip(ctx, sx(P.qb.x), sy(P.qb.y), 10, off, 'QB', P.phase === 'LIVE');
 }
 
+/* `glow` is either falsy, true (a plain white halo) or a colour string. */
 function chip(ctx, x, y, r, color, label, glow) {
   if (glow) {
-    ctx.beginPath(); ctx.arc(x, y, r + 6, 0, 7);
-    ctx.fillStyle = 'rgba(255,255,255,0.28)'; ctx.fill();
+    const c = (typeof glow === 'string') ? glow : 'rgba(255,255,255,0.28)';
+    ctx.beginPath(); ctx.arc(x, y, r + 9, 0, 7);
+    ctx.fillStyle = c; ctx.fill();
+    ctx.beginPath(); ctx.arc(x, y, r + 9, 0, 7);
+    ctx.lineWidth = 2; ctx.strokeStyle = c.replace(/0\.\d+\)$/, '0.95)'); ctx.stroke();
   }
   ctx.beginPath(); ctx.arc(x, y, r, 0, 7);
   ctx.fillStyle = color; ctx.fill();
@@ -226,6 +231,13 @@ function drawOverlay(ctx, G, P) {
     }
   }
 
+  if (P.flash && P.carrier) {
+    ctx.fillStyle = `rgba(255,255,255,${Math.min(1, P.flash.t * 1.8)})`;
+    ctx.font = '700 13px Arial Black, Arial, sans-serif';
+    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.fillText(P.flash.text, sx(P.carrier.x), sy(P.carrier.y) - 24);
+  }
+
   if (P.result) {
     ctx.fillStyle = 'rgba(0,0,0,0.55)';
     ctx.fillRect(0, CFG.CANVAS_H / 2 - 44, CFG.CANVAS_W, 88);
@@ -235,7 +247,7 @@ function drawOverlay(ctx, G, P) {
     ctx.fillText(P.result.text, CFG.CANVAS_W / 2, CFG.CANVAS_H / 2 - 12);
 
     let sub = '';
-    if (P.result.type === 'TACKLE') sub = `+${P.result.yards} YARDS`;
+    if (P.result.type === 'TACKLE') sub = `${P.result.yards >= 0 ? '+' : ''}${P.result.yards} YARDS`;
     else if (P.result.type === 'SACK') sub = `${P.result.yards} YARDS`;
     else if (P.result.type === 'TD') sub = `${G.teams[G.possIndex].name.toUpperCase()} SCORES`;
     if (P.result.odds && (P.result.type === 'INCOMPLETE' || P.result.type === 'INT')) {
